@@ -91,10 +91,11 @@
   </div>
 
   <!-- Mode tabs -->
-  <div class="flex gap-2 px-4 py-2 border-b border-gray-200 bg-white">
+  <div class="flex gap-2 px-4 py-2 border-b border-gray-200 bg-white overflow-x-auto">
     <div class="mode-tab active" data-mode="quote" onclick="setMode('quote')">Quote</div>
     <div class="mode-tab" data-mode="chat" onclick="setMode('chat')">Ask a Question</div>
     <div class="mode-tab" data-mode="marketing" onclick="setMode('marketing')">Marketing Audit</div>
+    <div class="mode-tab" data-mode="reply" onclick="setMode('reply')">Reply to Customer</div>
   </div>
 
   <!-- Chat area -->
@@ -177,7 +178,8 @@ let attachedImage = null;
 const modeIntros = {
   quote: "Hey! Tell me about the job — client name, address, and what you're billing for. You can type it, or tap the mic and just talk.",
   chat: "Ask me anything — codes, specs, troubleshooting, or pricing questions for your trade.",
-  marketing: "Attach a screenshot (your reviews, a social post, anything) and I'll give you a quick marketing read on it."
+  marketing: "Attach a screenshot (your reviews, a social post, anything) and I'll give you a quick marketing read on it.",
+  reply: "Paste or read me a message a customer sent you, and I'll draft a reply you can send back."
 };
 
 function setMode(mode) {
@@ -186,7 +188,13 @@ function setMode(mode) {
     el.classList.toggle('active', el.dataset.mode === mode);
   });
   document.getElementById('introBubble').textContent = modeIntros[mode];
-  textInput.placeholder = mode === 'chat' ? 'Ask a question...' : mode === 'marketing' ? 'Any notes (optional)...' : 'Describe the job...';
+  const placeholders = {
+    chat: 'Ask a question...',
+    marketing: 'Any notes (optional)...',
+    reply: "Paste the customer's message...",
+    quote: 'Describe the job...',
+  };
+  textInput.placeholder = placeholders[mode] || 'Describe the job...';
 }
 
 function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
@@ -227,6 +235,43 @@ function addChatReplyBubble(text) {
   wrap.innerHTML = `<div class="bubble-left px-4 py-2.5 max-w-[85%] text-[15px] leading-snug whitespace-pre-wrap">${escapeHtml(text)}</div>`;
   chat.appendChild(wrap);
   scrollToBottom();
+}
+
+let replyCounter = 0;
+
+function addCustomerReplyBubble(text) {
+  const replyId = 'reply' + (++replyCounter);
+  const wrap = document.createElement('div');
+  wrap.className = 'flex justify-start';
+  wrap.innerHTML = `
+    <div class="bubble-left p-1 max-w-[86%] w-full">
+      <div class="invoice-card">
+        <div class="px-4 pt-3 pb-1">
+          <div class="text-[11px] font-semibold tracking-wide text-[var(--imessage-blue)] uppercase">Suggested Reply</div>
+        </div>
+        <div class="px-4 pb-3 text-[14.5px] leading-snug whitespace-pre-wrap text-gray-900" id="${replyId}">${escapeHtml(text)}</div>
+        <div class="px-4 pb-3 flex gap-2 bg-gray-50 pt-2">
+          <button onclick="copyReply('${replyId}')" class="flex-1 text-[12.5px] font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg py-2">Copy</button>
+          <button onclick="textReply('${replyId}')" class="flex-1 text-[12.5px] font-semibold text-white bg-[var(--imessage-blue)] rounded-lg py-2">Text This</button>
+        </div>
+      </div>
+    </div>`;
+  chat.appendChild(wrap);
+  scrollToBottom();
+}
+
+function copyReply(replyId) {
+  const text = document.getElementById(replyId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    addChatReplyBubble('Reply copied to clipboard.');
+  }).catch(() => {
+    addErrorBubble('Could not copy — try again.');
+  });
+}
+
+function textReply(replyId) {
+  const text = document.getElementById(replyId).textContent;
+  window.location.href = 'sms:?body=' + encodeURIComponent(text);
 }
 
 let invoiceCounter = 0;
@@ -398,7 +443,7 @@ function escapeHtml(str) {
 
 // Conversation memory, kept separate per mode so a quote-in-progress doesn't
 // bleed into an unrelated chat question, etc. Each entry is { role, text }.
-const historyByMode = { quote: [], chat: [], marketing: [] };
+const historyByMode = { quote: [], chat: [], marketing: [], reply: [] };
 
 async function sendToBackend({ audioBlob, text, image }) {
   const formData = new FormData();
@@ -445,6 +490,9 @@ async function handleSubmission({ audioBlob, text, userLabel, image }) {
     } else if (response.type === 'chat') {
       addChatReplyBubble(response.reply || '');
       rememberTurn(text || userLabel, response.reply || '');
+    } else if (response.type === 'reply') {
+      addCustomerReplyBubble(response.reply_text || '');
+      forgetConversation();
     } else {
       addInvoiceBubble(response);
       rememberTurn(text || userLabel, `(produced a quote for ${response.client_name || 'the client'})`);

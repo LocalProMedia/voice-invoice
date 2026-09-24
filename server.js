@@ -112,14 +112,24 @@ What you know about this trade:
 ${tradeContext(trade) || `No specific reference data for "${trade}" — use general contractor knowledge.`}
 
 Answer questions about codes, specs, troubleshooting, or pricing — concisely
-and practically, using the conversation so far for context. Respond in plain
-text, not JSON.
+and practically, using the conversation so far for context.
+
+If the question is too vague or broad to give a genuinely specific, useful
+answer (not enough detail to know what's actually being asked), do not give a
+generic non-answer. Instead, ask ONE short clarifying question to get the
+detail you need — then answer properly once you have it.
+
+Respond in plain text, not JSON, whether you're answering or asking.
 `.trim();
 
 const MARKETING_SCHEMA_INSTRUCTIONS = (trade) => `
 You are a growth marketing engine for a ${trade} contractor. Analyze the provided
-screenshot (a review site, social profile, or post) and any notes. Return RAW
-JSON ONLY matching exactly this shape:
+screenshot (a review site, social profile, or post) and any notes.
+
+Return RAW JSON ONLY. Choose ONE of two shapes:
+
+If the screenshot/notes give you enough to actually say something specific and
+useful (not just generic filler):
 {
   "type": "marketing",
   "business_name": "",
@@ -128,7 +138,38 @@ JSON ONLY matching exactly this shape:
     { "platform": "", "hook": "", "caption": "", "call_to_action": "", "suggested_visual": "" }
   ]
 }
+
+If the image is blank, unreadable, unrelated to the business, or there's not
+enough there to say anything specific — do not force a generic audit. Instead:
+{
+  "type": "question",
+  "question": ""
+}
+
 Base findings and suggestions only on what's actually visible in the image/notes provided.
+`.trim();
+
+const REPLY_SCHEMA_INSTRUCTIONS = (trade) => `
+You are a customer-communications assistant for a ${trade} contractor.
+
+What you know about this trade:
+${tradeContext(trade) || `No specific reference data for "${trade}" — use general contractor knowledge.`}
+
+You will be given a message a CUSTOMER sent to the contractor (a text, email,
+DM, or review). Draft a warm, professional, concise reply the contractor can
+send back as-is.
+
+If the customer asks about pricing and gave enough detail to ballpark it,
+use your trade knowledge above to give a rough range rather than refusing to
+mention price. If there's not enough detail to even ballpark, the reply
+should ask the customer for the specific missing detail (e.g. square footage,
+address, what exactly needs doing) rather than being vague.
+
+Return RAW JSON ONLY matching exactly this shape:
+{
+  "type": "reply",
+  "reply_text": ""
+}
 `.trim();
 
 app.post(
@@ -170,6 +211,8 @@ app.post(
         responseMimeType = 'text/plain';
       } else if (actionType === 'marketing') {
         systemInstruction = MARKETING_SCHEMA_INSTRUCTIONS(trade);
+      } else if (actionType === 'reply') {
+        systemInstruction = REPLY_SCHEMA_INSTRUCTIONS(trade);
       } else {
         systemInstruction = QUOTE_SCHEMA_INSTRUCTIONS(trade);
       }
@@ -215,15 +258,24 @@ app.post(
         return res.status(502).json({ error: 'The AI response could not be parsed. Please try again.' });
       }
 
+      // Check for a clarifying question FIRST, regardless of mode — both
+      // Quote and Marketing can ask one instead of forcing a weak answer.
+      if (parsed.type === 'question') {
+        const question = typeof parsed.question === 'string' && parsed.question.trim()
+          ? parsed.question.trim()
+          : 'Can you give me a bit more detail?';
+        return res.json({ type: 'question', question });
+      }
+
       if (actionType === 'marketing') {
         return res.json(normalizeMarketing(parsed));
       }
 
-      if (parsed.type === 'question') {
-        const question = typeof parsed.question === 'string' && parsed.question.trim()
-          ? parsed.question.trim()
-          : 'Can you give me a bit more detail on the job?';
-        return res.json({ type: 'question', question });
+      if (actionType === 'reply') {
+        const replyText = typeof parsed.reply_text === 'string' && parsed.reply_text.trim()
+          ? parsed.reply_text.trim()
+          : "Thanks for reaching out — could you share a bit more detail so I can get you an accurate answer?";
+        return res.json({ type: 'reply', reply_text: replyText });
       }
 
       return res.json(normalizeInvoice(parsed));
