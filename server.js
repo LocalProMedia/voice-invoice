@@ -1,4 +1,3 @@
-// server.js (Dual-Engine: Operations & Marketing with Fallback Protection)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -69,7 +68,7 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
     if (actionType === 'chat') {
       responseMimeType = "text/plain";
       systemInstruction = `
-You are a knowledgeable, direct field assistant for independent ${trade} contractors.
+You are a knowledgeable field assistant for independent ${trade} contractors.
 Answer questions directly regarding local building codes, trade specifications, troubleshooting, or general pricing.
 Keep explanations concise, practical, and tailored to working in the field.
       `.trim();
@@ -143,7 +142,7 @@ Produce an invoice strictly matching this JSON schema:
       if (actionType === 'chat') {
         return res.json({
           type: "chat",
-          reply: `Offline Mode: AI connection interrupted. Switch to Quote mode to build pricing with offline trade presets.`
+          reply: "Offline Mode: AI connection interrupted. Switch to Quote mode to build pricing with offline trade presets."
         });
       }
 
@@ -171,10 +170,10 @@ Produce an invoice strictly matching this JSON schema:
         client_name: "Client Quote (Offline Mode)",
         address: "",
         line_items: [
-          { 
-            description: rate > 0 ? desc : `Standard Service Call (${trade})`, 
-            quantity: 1, 
-            rate: rate > 0 ? rate : 125 
+          {
+            description: rate > 0 ? desc : `Standard Service Call (${trade})`,
+            quantity: 1,
+            rate: rate > 0 ? rate : 125
           }
         ]
       });
