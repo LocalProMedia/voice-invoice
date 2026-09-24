@@ -79,17 +79,23 @@
     <div class="w-9 h-9 rounded-full bg-[var(--imessage-blue)] flex items-center justify-center text-white font-bold text-sm">AI</div>
     <div class="flex-1 min-w-0">
       <div class="font-semibold text-[15px] leading-tight text-gray-900">Quote Assistant</div>
-      <input id="tradeInput" type="text" value="General Contractor"
-        class="text-[12px] text-gray-500 leading-tight bg-transparent outline-none w-full"
-        placeholder="Your trade (e.g. Plumbing)">
+      <select id="tradeInput"
+        class="text-[12px] text-gray-500 leading-tight bg-transparent outline-none w-full -ml-0.5">
+        <option>Home Cleaning</option>
+        <option>Plumbing</option>
+        <option>Electrical</option>
+        <option>Landscaping</option>
+        <option>Flooring</option>
+      </select>
     </div>
   </div>
 
   <!-- Mode tabs -->
-  <div class="flex gap-2 px-4 py-2 border-b border-gray-200 bg-white">
+  <div class="flex gap-2 px-4 py-2 border-b border-gray-200 bg-white overflow-x-auto">
     <div class="mode-tab active" data-mode="quote" onclick="setMode('quote')">Quote</div>
     <div class="mode-tab" data-mode="chat" onclick="setMode('chat')">Ask a Question</div>
     <div class="mode-tab" data-mode="marketing" onclick="setMode('marketing')">Marketing Audit</div>
+    <div class="mode-tab" data-mode="reply" onclick="setMode('reply')">Reply to Customer</div>
   </div>
 
   <!-- Chat area -->
@@ -152,6 +158,12 @@ const textInput = document.getElementById('textInput');
 const sendBtn = document.getElementById('sendBtn');
 const recordingHint = document.getElementById('recordingHint');
 const tradeInput = document.getElementById('tradeInput');
+if (localStorage.getItem('saved_trade')) {
+  tradeInput.value = localStorage.getItem('saved_trade');
+}
+tradeInput.addEventListener('change', () => {
+  localStorage.setItem('saved_trade', tradeInput.value);
+});
 const imageBtn = document.getElementById('imageBtn');
 const imageFileInput = document.getElementById('imageFileInput');
 const imagePreviewWrap = document.getElementById('imagePreviewWrap');
@@ -166,7 +178,8 @@ let attachedImage = null;
 const modeIntros = {
   quote: "Hey! Tell me about the job — client name, address, and what you're billing for. You can type it, or tap the mic and just talk.",
   chat: "Ask me anything — codes, specs, troubleshooting, or pricing questions for your trade.",
-  marketing: "Attach a screenshot (your reviews, a social post, anything) and I'll give you a quick marketing read on it."
+  marketing: "Attach a screenshot (your reviews, a social post, anything) and I'll give you a quick marketing read on it.",
+  reply: "Paste or read me a message a customer sent you, and I'll draft a reply you can send back."
 };
 
 function setMode(mode) {
@@ -175,7 +188,13 @@ function setMode(mode) {
     el.classList.toggle('active', el.dataset.mode === mode);
   });
   document.getElementById('introBubble').textContent = modeIntros[mode];
-  textInput.placeholder = mode === 'chat' ? 'Ask a question...' : mode === 'marketing' ? 'Any notes (optional)...' : 'Describe the job...';
+  const placeholders = {
+    chat: 'Ask a question...',
+    marketing: 'Any notes (optional)...',
+    reply: "Paste the customer's message...",
+    quote: 'Describe the job...',
+  };
+  textInput.placeholder = placeholders[mode] || 'Describe the job...';
 }
 
 function scrollToBottom() { chat.scrollTop = chat.scrollHeight; }
@@ -218,22 +237,62 @@ function addChatReplyBubble(text) {
   scrollToBottom();
 }
 
-function addInvoiceBubble(invoice) {
-  const items = Array.isArray(invoice.line_items) ? invoice.line_items : [];
-  const subtotal = items.reduce((sum, li) => sum + (Number(li.quantity) || 0) * (Number(li.rate) || 0), 0);
-  const grandTotal = subtotal;
+let replyCounter = 0;
 
-  const rowsHtml = items.map(li => {
+function addCustomerReplyBubble(text) {
+  const replyId = 'reply' + (++replyCounter);
+  const wrap = document.createElement('div');
+  wrap.className = 'flex justify-start';
+  wrap.innerHTML = `
+    <div class="bubble-left p-1 max-w-[86%] w-full">
+      <div class="invoice-card">
+        <div class="px-4 pt-3 pb-1">
+          <div class="text-[11px] font-semibold tracking-wide text-[var(--imessage-blue)] uppercase">Suggested Reply</div>
+        </div>
+        <div class="px-4 pb-3 text-[14.5px] leading-snug whitespace-pre-wrap text-gray-900" id="${replyId}">${escapeHtml(text)}</div>
+        <div class="px-4 pb-3 flex gap-2 bg-gray-50 pt-2">
+          <button onclick="copyReply('${replyId}')" class="flex-1 text-[12.5px] font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg py-2">Copy</button>
+          <button onclick="textReply('${replyId}')" class="flex-1 text-[12.5px] font-semibold text-white bg-[var(--imessage-blue)] rounded-lg py-2">Text This</button>
+        </div>
+      </div>
+    </div>`;
+  chat.appendChild(wrap);
+  scrollToBottom();
+}
+
+function copyReply(replyId) {
+  const text = document.getElementById(replyId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    addChatReplyBubble('Reply copied to clipboard.');
+  }).catch(() => {
+    addErrorBubble('Could not copy — try again.');
+  });
+}
+
+function textReply(replyId) {
+  const text = document.getElementById(replyId).textContent;
+  window.location.href = 'sms:?body=' + encodeURIComponent(text);
+}
+
+let invoiceCounter = 0;
+
+function addInvoiceBubble(invoice) {
+  const cardId = 'inv' + (++invoiceCounter);
+  const items = Array.isArray(invoice.line_items) ? invoice.line_items : [];
+
+  const rowsHtml = items.map((li, i) => {
     const qty = Number(li.quantity) || 0;
     const rate = Number(li.rate) || 0;
-    const lineTotal = qty * rate;
     return `
       <div class="invoice-row px-4 py-2.5">
-        <div class="flex justify-between text-[13.5px] font-medium text-gray-900">
-          <span class="pr-2">${escapeHtml(li.description || 'Item')}</span>
-          <span class="whitespace-nowrap">${fmtMoney(lineTotal)}</span>
+        <div class="flex justify-between items-start gap-2 text-[13.5px] font-medium text-gray-900">
+          <span class="pr-2 flex-1 editable-desc" contenteditable="true" data-card="${cardId}" data-idx="${i}">${escapeHtml(li.description || 'Item')}</span>
+          <span class="whitespace-nowrap line-total" data-card="${cardId}" data-idx="${i}">${fmtMoney(qty * rate)}</span>
         </div>
-        <div class="text-[11.5px] text-gray-400 mt-0.5">${qty} &times; ${fmtMoney(rate)}</div>
+        <div class="text-[11.5px] text-gray-400 mt-0.5">
+          <span class="editable-qty" contenteditable="true" data-card="${cardId}" data-idx="${i}">${qty}</span>
+          &times; $<span class="editable-rate" contenteditable="true" data-card="${cardId}" data-idx="${i}">${rate.toFixed(2)}</span>
+        </div>
       </div>`;
   }).join('') || `<div class="px-4 py-3 text-[13px] text-gray-400">No line items detected.</div>`;
 
@@ -241,25 +300,105 @@ function addInvoiceBubble(invoice) {
   wrap.className = 'flex justify-start';
   wrap.innerHTML = `
     <div class="bubble-left p-1 max-w-[86%] w-full">
-      <div class="invoice-card">
+      <div class="invoice-card" id="${cardId}">
         <div class="px-4 pt-3 pb-2">
-          <div class="text-[11px] font-semibold tracking-wide text-[var(--imessage-blue)] uppercase">Quote</div>
-          <div class="text-[16px] font-bold text-gray-900 mt-0.5">${escapeHtml(invoice.client_name || 'New Client')}</div>
+          <div class="text-[11px] font-semibold tracking-wide text-[var(--imessage-blue)] uppercase">Quote &middot; tap any field to edit</div>
+          <div class="text-[16px] font-bold text-gray-900 mt-0.5 client-name-val">${escapeHtml(invoice.client_name || 'New Client')}</div>
           ${invoice.address ? `<div class="text-[12.5px] text-gray-400 mt-0.5">${escapeHtml(invoice.address)}</div>` : ''}
         </div>
         <div>${rowsHtml}</div>
         <div class="px-4 py-2.5 flex justify-between text-[13px] text-gray-500 border-t border-gray-100">
-          <span>Subtotal</span><span>${fmtMoney(subtotal)}</span>
+          <span>Subtotal</span><span class="subtotal-val">${fmtMoney(0)}</span>
         </div>
         <div class="px-4 py-3 flex justify-between items-center bg-gray-50">
           <span class="text-[14px] font-semibold text-gray-900">Grand Total</span>
-          <span class="text-[17px] font-bold text-[var(--imessage-blue)]">${fmtMoney(grandTotal)}</span>
+          <span class="text-[17px] font-bold text-[var(--imessage-blue)] grandtotal-val">${fmtMoney(0)}</span>
+        </div>
+        <div class="px-4 pb-3 flex gap-2 bg-gray-50">
+          <button onclick="copyQuote('${cardId}')" class="flex-1 text-[12.5px] font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg py-2">Copy</button>
+          <button onclick="textQuote('${cardId}')" class="flex-1 text-[12.5px] font-semibold text-white bg-[var(--imessage-blue)] rounded-lg py-2">Text to Client</button>
         </div>
       </div>
     </div>`;
   chat.appendChild(wrap);
+
+  // Wire up live recalculation on edit
+  wrap.querySelectorAll('.editable-qty, .editable-rate').forEach(el => {
+    el.addEventListener('input', () => recalcInvoice(cardId));
+  });
+  wrap.querySelectorAll('.editable-desc').forEach(el => {
+    el.addEventListener('input', () => syncInvoiceData(cardId));
+  });
+
+  recalcInvoice(cardId);
   scrollToBottom();
 }
+
+function recalcInvoice(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  let subtotal = 0;
+  card.querySelectorAll('.editable-qty').forEach((qtyEl) => {
+    const idx = qtyEl.dataset.idx;
+    const rateEl = card.querySelector(`.editable-rate[data-idx="${idx}"]`);
+    const lineTotalEl = card.querySelector(`.line-total[data-idx="${idx}"]`);
+    const qty = parseFloat(qtyEl.textContent) || 0;
+    const rate = parseFloat(rateEl.textContent) || 0;
+    const lineTotal = qty * rate;
+    if (lineTotalEl) lineTotalEl.textContent = fmtMoney(lineTotal);
+    subtotal += lineTotal;
+  });
+  card.querySelector('.subtotal-val').textContent = fmtMoney(subtotal);
+  card.querySelector('.grandtotal-val').textContent = fmtMoney(subtotal);
+  syncInvoiceData(cardId);
+}
+
+function syncInvoiceData(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  const items = [];
+  card.querySelectorAll('.editable-desc').forEach((descEl) => {
+    const idx = descEl.dataset.idx;
+    const qtyEl = card.querySelector(`.editable-qty[data-idx="${idx}"]`);
+    const rateEl = card.querySelector(`.editable-rate[data-idx="${idx}"]`);
+    items.push({
+      description: descEl.textContent.trim(),
+      quantity: parseFloat(qtyEl.textContent) || 0,
+      rate: parseFloat(rateEl.textContent) || 0,
+    });
+  });
+  card.dataset.items = JSON.stringify(items);
+}
+
+function quoteToText(cardId) {
+  const card = document.getElementById(cardId);
+  const items = JSON.parse(card.dataset.items || '[]');
+  const clientName = card.querySelector('.client-name-val').textContent.trim();
+  let lines = [`Quote for ${clientName}`, ''];
+  let total = 0;
+  items.forEach(li => {
+    const lineTotal = (Number(li.quantity) || 0) * (Number(li.rate) || 0);
+    total += lineTotal;
+    lines.push(`${li.description} — ${li.quantity} x ${fmtMoney(li.rate)} = ${fmtMoney(lineTotal)}`);
+  });
+  lines.push('', `Total: ${fmtMoney(total)}`);
+  return lines.join('\n');
+}
+
+function copyQuote(cardId) {
+  const text = quoteToText(cardId);
+  navigator.clipboard.writeText(text).then(() => {
+    addChatReplyBubble('Quote copied to clipboard.');
+  }).catch(() => {
+    addErrorBubble('Could not copy — try again.');
+  });
+}
+
+function textQuote(cardId) {
+  const text = quoteToText(cardId);
+  window.location.href = 'sms:?body=' + encodeURIComponent(text);
+}
+
 
 function addMarketingBubble(plan) {
   const findings = Array.isArray(plan.audit_findings) ? plan.audit_findings : [];
@@ -302,13 +441,18 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// Conversation memory, kept separate per mode so a quote-in-progress doesn't
+// bleed into an unrelated chat question, etc. Each entry is { role, text }.
+const historyByMode = { quote: [], chat: [], marketing: [], reply: [] };
+
 async function sendToBackend({ audioBlob, text, image }) {
   const formData = new FormData();
   if (audioBlob) formData.append('audio', audioBlob, 'recording.webm');
   if (image) formData.append('image', image, 'screenshot.jpg');
   if (text) formData.append('text', text);
-  formData.append('trade', tradeInput.value.trim() || 'General Contractor');
+  formData.append('trade', tradeInput.value || 'General Contractor');
   formData.append('actionType', currentMode);
+  formData.append('history', JSON.stringify(historyByMode[currentMode]));
 
   const res = await fetch('/api/generate-quote', { method: 'POST', body: formData });
   const data = await res.json().catch(() => ({}));
@@ -318,15 +462,42 @@ async function sendToBackend({ audioBlob, text, image }) {
   return data;
 }
 
+function rememberTurn(userText, modelSummary) {
+  const hist = historyByMode[currentMode];
+  hist.push({ role: 'user', text: userText || '(voice/image input)' });
+  hist.push({ role: 'model', text: modelSummary });
+  // Keep the last ~12 turns so context doesn't grow forever.
+  while (hist.length > 24) hist.shift();
+}
+
+function forgetConversation() {
+  historyByMode[currentMode] = [];
+}
+
 async function handleSubmission({ audioBlob, text, userLabel, image }) {
   addUserBubble(userLabel);
   addTypingBubble();
   try {
     const response = await sendToBackend({ audioBlob, text, image });
     removeTypingBubble();
-    if (response.type === 'marketing') addMarketingBubble(response);
-    else if (response.type === 'chat') addChatReplyBubble(response.reply || '');
-    else addInvoiceBubble(response);
+
+    if (response.type === 'question') {
+      addChatReplyBubble(response.question || 'Can you tell me a bit more?');
+      rememberTurn(text || userLabel, `(asked a follow-up) ${response.question || ''}`);
+    } else if (response.type === 'marketing') {
+      addMarketingBubble(response);
+      forgetConversation();
+    } else if (response.type === 'chat') {
+      addChatReplyBubble(response.reply || '');
+      rememberTurn(text || userLabel, response.reply || '');
+    } else if (response.type === 'reply') {
+      addCustomerReplyBubble(response.reply_text || '');
+      forgetConversation();
+    } else {
+      addInvoiceBubble(response);
+      rememberTurn(text || userLabel, `(produced a quote for ${response.client_name || 'the client'})`);
+      forgetConversation();
+    }
   } catch (err) {
     removeTypingBubble();
     addErrorBubble(err.message || 'Something went wrong. Please try again.');

@@ -1,29 +1,42 @@
 # Quote Assistant — LocalPro Media
 
-Three modes in one tool:
-- **Quote** — describe a job by voice or text, get a structured invoice back
-- **Ask a Question** — quick field Q&A for your trade (codes, specs, pricing)
-- **Marketing Audit** — attach a screenshot (reviews, social post), get feedback + ready-to-post templates
+## 4 modes
+- **Quote** — describe a job, get a structured invoice
+- **Ask a Question** — field Q&A for your trade
+- **Marketing Audit** — attach a screenshot, get feedback + post templates
+- **Reply to Customer** — paste a customer's message, get a professional reply back (with Copy / Text buttons)
+
+## Also includes
+- 5-trade dropdown: Home Cleaning, Plumbing, Electrical, Landscaping, Flooring
+- Real trade knowledge baked into the AI (common services + typical pricing per trade)
+- Conversation memory — if info's missing, it asks ONE follow-up question instead of guessing
+- Copy / Text to Client buttons on quotes and customer replies
+- Editable line items on quotes — tap to fix, totals recalculate live
+- Remembers your selected trade between visits
 
 ## Files
-- `index.html` — the whole frontend (chat UI, mode tabs, test password gate)
-- `server.js` — backend, calls Gemini, no license check (test password in index.html covers access for now)
-- `package.json` — dependencies
-- `Dockerfile` — needed for Render deploys
+- `index.html` — full frontend
+- `server.js` — backend (no license check — password screen in index.html covers access for now)
+- `package.json`, `Dockerfile` — unchanged
 
-## Setup
-1. Upload all 4 files to your GitHub repo, overwriting what's there
-2. On Render: Environment Variables → add `GEMINI_API_KEY` with your real key from aistudio.google.com/app/apikey
-3. Deploy
+## Upload instructions (all 5 files, every time)
+1. Unzip this
+2. GitHub repo → Add file → Upload files
+3. Drag in all 5 — GitHub auto-replaces files with matching names
+4. Scroll down, click green "Commit changes"
+5. Wait ~1-2 min for Render to auto-redeploy
+6. Visit your live URL, enter the test password, try it
 
-## The test password
-Open `index.html`, find near the top:
+## Test password
+Open `index.html`, near the top:
 ```
 var TEST_PASSWORD = "changeme123";
 ```
-Change it to whatever you want. This gates the tool until Gumroad licensing is wired up — swap it for real license checking later.
 
-## Adding Gumroad back later
-When ready, the license check goes in `server.js`'s `/api/generate-quote` route,
-verified against Gumroad's API using `product_id` (not `product_permalink` —
-Gumroad changed this for products made in 2023+).
+## Adding a new trade later
+In `server.js`, add an entry to `TRADE_KNOWLEDGE`, and add a matching
+`<option>` in `index.html`'s trade dropdown. Nothing else needs to change.
+
+## Adding Gumroad back in later
+License check goes back into `server.js`'s `/api/generate-quote` route,
+verified against Gumroad's API using `product_id` (not `product_permalink`).
