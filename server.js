@@ -1,4 +1,4 @@
-// server.js (Invoices, Marketing Intel, and Conversational Search with Offline Fallback)
+// server.js (Dual-Engine: Operations & Marketing with Fallback Protection)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -39,7 +39,7 @@ async function verifyGumroadLicense(licenseKey) {
     const data = await response.json();
     return data.success && !data.uses;
   } catch (err) {
-    console.error('License verification error:', err);
+    console.error('License check error:', err);
     return false;
   }
 }
@@ -50,17 +50,17 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
     const isValidLicense = await verifyGumroadLicense(licenseKey);
 
     if (!isValidLicense) {
-      return res.status(401).json({ error: 'Active Gumroad license or TEST-MODE required.' });
+      return res.status(401).json({ error: 'Active Gumroad license required.' });
     }
 
     const textInput = req.body && typeof req.body.text === 'string' ? req.body.text.trim() : '';
     const trade = req.body && req.body.trade ? req.body.trade : 'General Contractor';
-    const actionType = req.body && req.body.actionType ? req.body.actionType : 'quote'; 
+    const actionType = req.body && req.body.actionType ? req.body.actionType : 'quote';
     const audioFile = req.files && req.files['audio'] ? req.files['audio'][0] : null;
     const imageFile = req.files && req.files['image'] ? req.files['image'][0] : null;
 
     if (!audioFile && !imageFile && !textInput) {
-      return res.status(400).json({ error: 'Please provide text, audio, or a photo/screenshot.' });
+      return res.status(400).json({ error: 'Please provide text, audio, or a screenshot.' });
     }
 
     let systemInstruction = "";
@@ -70,7 +70,7 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
       responseMimeType = "text/plain";
       systemInstruction = `
 You are a knowledgeable, direct field assistant for independent ${trade} contractors.
-Answer questions directly using real-time search when needed for local building codes, trade specifications, troubleshooting, or live pricing.
+Answer questions directly regarding local building codes, trade specifications, troubleshooting, or general pricing.
 Keep explanations concise, practical, and tailored to working in the field.
       `.trim();
     } else if (actionType === 'marketing') {
@@ -98,9 +98,9 @@ Produce an action plan strictly matching this JSON schema:
       `.trim();
     } else {
       systemInstruction = `
-You are an AI estimating engine for home service professionals specializing in: ${trade}.
+You are an expert AI estimating engine for home service professionals specializing in: ${trade}.
 Extract the client name, job address, and itemized billing details into clean line items.
-If prices or materials are not stated, use Google Search grounding to populate accurate market rates.
+If prices or materials are not explicitly stated, estimate standard market rates for the trade.
 
 Produce an invoice strictly matching this JSON schema:
 {
@@ -115,9 +115,8 @@ Produce an invoice strictly matching this JSON schema:
     }
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-1.5-flash-latest',
       systemInstruction,
-      tools: [{ googleSearch: {} }],
       generationConfig: { responseMimeType, temperature: 0.2 },
     });
 
@@ -144,7 +143,7 @@ Produce an invoice strictly matching this JSON schema:
       if (actionType === 'chat') {
         return res.json({
           type: "chat",
-          reply: `Offline Mode: Unable to connect to Gemini live search right now. If you need standard diagnostic rates or basic quotes, switch over to Quote mode to calculate with saved presets.`
+          reply: `Offline Mode: AI connection interrupted. Switch to Quote mode to build pricing with offline trade presets.`
         });
       }
 
@@ -152,13 +151,13 @@ Produce an invoice strictly matching this JSON schema:
         return res.json({
           type: "marketing",
           business_name: "Local Offline Mode",
-          audit_findings: ["AI is temporarily offline. Basic templates generated from local presets."],
+          audit_findings: ["AI is temporarily offline. Basic templates generated locally."],
           social_templates: [{
             platform: "Universal",
             hook: `Need a reliable ${trade}?`,
-            caption: `We are currently booking projects for the upcoming week! Contact us today to secure a spot on the calendar.`,
+            caption: `We are currently booking projects for the upcoming week! Reach out today to claim your slot on the schedule.`,
             call_to_action: "Send us a direct message!",
-            suggested_visual: "A high-quality before-and-after photo of your most recent job."
+            suggested_visual: "A high-quality before-and-after photo of your cleanest recent job."
           }]
         });
       }
