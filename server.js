@@ -67,50 +67,11 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
 
     if (actionType === 'chat') {
       responseMimeType = "text/plain";
-      systemInstruction = `
-You are a knowledgeable field assistant for independent ${trade} contractors.
-Answer questions directly regarding local building codes, trade specifications, troubleshooting, or general pricing.
-Keep explanations concise, practical, and tailored to working in the field.
-      `.trim();
+      systemInstruction = "You are a field assistant for " + trade + " contractors. Answer questions directly regarding codes, specs, troubleshooting, or pricing concisely.";
     } else if (actionType === 'marketing') {
-      systemInstruction = `
-You are a Growth Marketing & Reputation Intelligence Engine for home service professionals (${trade}).
-Analyze the provided screenshot (Yelp page, social feed, reviews, or template library) and notes.
-
-Produce an action plan strictly matching this JSON schema:
-{
-  "type": "marketing",
-  "business_name": "Extracted business name or Valued Trade Pro",
-  "audit_findings": [
-    "Key observation about Yelp profile, ratings, missing details, or template layout"
-  ],
-  "social_templates": [
-    {
-      "platform": "Instagram / Facebook / Nextdoor",
-      "hook": "Attention-grabbing headline",
-      "caption": "Full post copy matching high-ticket ${trade} work",
-      "call_to_action": "Contact link or direct dial recommendation",
-      "suggested_visual": "Photo or template layout recommendation"
-    }
-  ]
-}
-      `.trim();
+      systemInstruction = "You are a Growth Marketing Engine for " + trade + ". Analyze the screenshot and notes. Output JSON with keys: type ('marketing'), business_name, audit_findings (array of strings), and social_templates (array of objects with platform, hook, caption, call_to_action, suggested_visual).";
     } else {
-      systemInstruction = `
-You are an expert AI estimating engine for home service professionals specializing in: ${trade}.
-Extract the client name, job address, and itemized billing details into clean line items.
-If prices or materials are not explicitly stated, estimate standard market rates for the trade.
-
-Produce an invoice strictly matching this JSON schema:
-{
-  "type": "quote",
-  "client_name": "",
-  "address": "",
-  "line_items": [
-    { "description": "", "quantity": 1, "rate": 0 }
-  ]
-}
-      `.trim();
+      systemInstruction = "You are an estimating engine for " + trade + ". Extract client name, address, and line items into JSON with keys: type ('quote'), client_name, address, and line_items (array of objects with description, quantity, rate).";
     }
 
     const model = genAI.getGenerativeModel({
@@ -153,17 +114,17 @@ Produce an invoice strictly matching this JSON schema:
           audit_findings: ["AI is temporarily offline. Basic templates generated locally."],
           social_templates: [{
             platform: "Universal",
-            hook: `Need a reliable ${trade}?`,
-            caption: `We are currently booking projects for the upcoming week! Reach out today to claim your slot on the schedule.`,
+            hook: "Need a reliable " + trade + "?",
+            caption: "We are currently booking projects for the upcoming week! Reach out today to claim your slot on the schedule.",
             call_to_action: "Send us a direct message!",
-            suggested_visual: "A high-quality before-and-after photo of your cleanest recent job."
+            suggested_visual: "A high-quality photo of your cleanest recent job."
           }]
         });
       }
 
       const priceMatch = textInput.match(/\$?(\d+(\.\d{2})?)/);
       const rate = priceMatch ? parseFloat(priceMatch[1]) : 0;
-      const desc = textInput.trim() || `Standard ${trade} Service`;
+      const desc = textInput.trim() || ("Standard " + trade + " Service");
 
       return res.json({
         type: "quote",
@@ -171,7 +132,7 @@ Produce an invoice strictly matching this JSON schema:
         address: "",
         line_items: [
           {
-            description: rate > 0 ? desc : `Standard Service Call (${trade})`,
+            description: rate > 0 ? desc : ("Standard Service Call (" + trade + ")"),
             quantity: 1,
             rate: rate > 0 ? rate : 125
           }
@@ -193,4 +154,4 @@ function safeParseJson(raw) {
   }
 }
 
-app.listen(PORT, () => console.log(`Mini AI running on port ${PORT}`));
+app.listen(PORT, () => console.log('Mini AI running on port ' + PORT));
