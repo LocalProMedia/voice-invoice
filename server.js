@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) {
-  console.error('\n[FATAL] GEMINI_API_KEY is not set.\n');
   process.exit(1);
 }
 
@@ -38,7 +37,6 @@ async function verifyGumroadLicense(licenseKey) {
     const data = await response.json();
     return data.success && !data.uses;
   } catch (err) {
-    console.error('License check error:', err);
     return false;
   }
 }
@@ -98,8 +96,6 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
       return res.json(parsed);
 
     } catch (geminiError) {
-      console.warn("Gemini API fallback active:", geminiError.message);
-
       if (actionType === 'chat') {
         return res.json({
           type: "chat",
@@ -141,7 +137,6 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
     }
 
   } catch (err) {
-    console.error('API Error:', err);
     res.status(500).json({ error: 'Server processing error.' });
   }
 });
