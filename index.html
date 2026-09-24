@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mini AI Assistant &mdash; Operations & Marketing</title>
+<title>Mini AI Assistant</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
-  :root { --imessage-blue: #007AFF; }
+  :root { --app-blue: #007AFF; }
   html, body { height: 100%; overscroll-behavior: none; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #F5F5F7; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F5F5F7; }
   .chat-scroll { -webkit-overflow-scrolling: touch; }
-  .bubble-right { background: var(--imessage-blue); color: #fff; border-radius: 18px; border-bottom-right-radius: 4px; }
+  .bubble-right { background: var(--app-blue); color: #fff; border-radius: 18px; border-bottom-right-radius: 4px; }
   .bubble-left { background: #E9E9EB; color: #111; border-radius: 18px; border-bottom-left-radius: 4px; }
   .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: #9AA0A6; display: inline-block; animation: bounce 1.2s infinite ease-in-out; }
   .typing-dot:nth-child(2) { animation-delay: 0.15s; }
@@ -29,21 +29,21 @@
 <!-- License Gate Modal -->
 <div id="licenseModal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center px-4 backdrop-blur-sm">
   <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 text-center">
-    <div class="w-12 h-12 bg-[var(--imessage-blue)] text-white rounded-full flex items-center justify-center mx-auto text-lg font-bold">AI</div>
+    <div class="w-12 h-12 bg-[var(--app-blue)] text-white rounded-full flex items-center justify-center mx-auto text-lg font-bold">AI</div>
     <h3 class="font-bold text-gray-900 text-lg">Activate Assistant</h3>
-    <p class="text-xs text-gray-500">Enter your Gumroad key to unlock quotes and marketing intelligence.</p>
+    <p class="text-xs text-gray-500">Enter your Gumroad license key or type <code class="font-mono bg-gray-100 px-1 py-0.5 rounded">TEST-MODE</code> to preview.</p>
     <input type="text" id="licenseKeyInput" placeholder="License Key" class="w-full bg-gray-100 rounded-xl px-3 py-2 text-sm outline-none border text-center font-mono">
-    <button id="saveLicenseBtn" class="w-full py-2.5 bg-[var(--imessage-blue)] text-white rounded-xl text-sm font-semibold">Unlock</button>
+    <button id="saveLicenseBtn" class="w-full py-2.5 bg-[var(--app-blue)] text-white rounded-xl text-sm font-semibold">Unlock</button>
   </div>
 </div>
 
 <div class="flex flex-col h-screen w-full max-w-md bg-white shadow-xl relative">
-  <!-- Top Nav -->
+  <!-- Top Bar -->
   <div class="flex items-center justify-between px-3 py-2.5 border-b border-gray-200 bg-white/95 sticky top-0 z-20">
     <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-full bg-[var(--imessage-blue)] flex items-center justify-center text-white font-bold text-xs">AI</div>
+      <div class="w-8 h-8 rounded-full bg-[var(--app-blue)] flex items-center justify-center text-white font-bold text-xs">AI</div>
       <div>
-        <div class="font-semibold text-[13.5px] leading-tight text-gray-900" id="displayCompanyName">Mini AI Pro</div>
+        <div class="font-semibold text-[13.5px] leading-tight text-gray-900" id="displayCompanyName">Mini AI Assistant</div>
         <div class="text-[9.5px] text-emerald-600 font-semibold tracking-wide uppercase">Zero Data Stored</div>
       </div>
     </div>
@@ -61,40 +61,41 @@
     </div>
   </div>
 
-  <!-- Primary Engine Mode Bar -->
-  <div class="grid grid-cols-2 p-1.5 bg-gray-100 border-b border-gray-200 gap-1 text-xs font-semibold">
-    <button id="modeQuotesBtn" class="py-1.5 rounded-md bg-white text-[var(--imessage-blue)] shadow-sm text-center">📝 Invoices & Quotes</button>
-    <button id="modeMarketingBtn" class="py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center">📈 Yelp & Social Intel</button>
+  <!-- Primary 3-Mode Switcher -->
+  <div class="grid grid-cols-3 p-1.5 bg-gray-100 border-b border-gray-200 gap-1 text-[11px] font-semibold">
+    <button id="modeQuotesBtn" class="py-1.5 rounded-md bg-white text-[var(--app-blue)] shadow-sm text-center">📝 Invoices</button>
+    <button id="modeMarketingBtn" class="py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center">📈 Social/Yelp</button>
+    <button id="modeChatBtn" class="py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center">💬 Online Chat</button>
   </div>
 
   <!-- Local Quick-Add Bar (Only visible in Quotes mode) -->
   <div id="quickAddContainer" class="bg-white border-b border-gray-200 py-1.5 px-2 overflow-x-auto hide-scrollbar whitespace-nowrap flex gap-1.5">
-    <!-- Populated by trade presets -->
+    <!-- Rendered dynamically -->
   </div>
 
-  <!-- Chat stream -->
+  <!-- Chat Log Stream -->
   <div id="chat" class="chat-scroll flex-1 overflow-y-auto px-3 py-4 space-y-3 bg-[#F5F5F7]">
     <div class="flex justify-start">
       <div id="welcomeMessage" class="bubble-left px-3.5 py-2.5 max-w-[85%] text-[13px] leading-snug">
-        Tap a quick preset above, talk into the mic, or drop a screenshot of a text or napkin sketch to generate an invoice.
+        Tap a quick preset above, dictate scope into the mic, or drop a photo to generate an estimate.
       </div>
     </div>
   </div>
 
-  <!-- Screenshot / Attachment preview banner -->
+  <!-- Screenshot/Attachment Indicator -->
   <div id="imagePreviewContainer" class="hidden px-3 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between text-xs text-blue-700">
     <span class="truncate max-w-[240px]" id="imageFileName">Attached screenshot</span>
     <button id="removeImageBtn" class="text-red-500 font-semibold hover:underline">Remove</button>
   </div>
 
-  <!-- Input Bar -->
+  <!-- Interactive Input Console -->
   <div class="px-3 pb-3 pt-2 border-t border-gray-200 bg-white sticky bottom-0 z-20">
     <div class="flex items-end gap-2">
-      <button id="micBtn" class="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--imessage-blue)] text-white flex items-center justify-center shadow">🎤</button>
+      <button id="micBtn" class="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--app-blue)] text-white flex items-center justify-center shadow">🎤</button>
       <input type="file" id="imageInput" accept="image/*" class="hidden">
       <button id="uploadBtn" class="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center">📎</button>
       <div class="flex-1 bg-gray-100 rounded-full px-3 py-1.5 flex items-center">
-        <input id="textInput" type="text" placeholder="Type or paste context..." class="w-full bg-transparent outline-none text-[13.5px] text-gray-900 placeholder-gray-400">
+        <input id="textInput" type="text" placeholder="Describe job or ask question..." class="w-full bg-transparent outline-none text-[13.5px] text-gray-900 placeholder-gray-400">
       </div>
       <button id="sendBtn" class="flex-shrink-0 w-9 h-9 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center">➤</button>
     </div>
@@ -105,7 +106,7 @@
 <div id="settingsModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
   <div class="bg-white rounded-2xl p-5 w-full max-w-sm shadow-xl space-y-3">
     <div class="flex justify-between items-center">
-      <h3 class="font-bold text-gray-900 text-sm">Contractor Setup</h3>
+      <h3 class="font-bold text-gray-900 text-sm">App Settings</h3>
       <button id="closeSettings" class="text-gray-400 text-lg">&times;</button>
     </div>
     <div>
@@ -113,47 +114,44 @@
       <input type="text" id="prefCompanyName" class="w-full bg-gray-100 rounded-lg px-3 py-2 text-sm outline-none">
     </div>
     <div>
-      <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Gumroad License</label>
+      <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">License Key</label>
       <input type="text" id="prefLicenseKey" class="w-full bg-gray-100 rounded-lg px-3 py-2 text-sm font-mono outline-none">
     </div>
-    <button id="savePreferences" class="w-full py-2 bg-[var(--imessage-blue)] text-white rounded-xl text-xs font-semibold">Save Settings</button>
+    <button id="savePreferences" class="w-full py-2 bg-[var(--app-blue)] text-white rounded-xl text-xs font-semibold">Save</button>
   </div>
 </div>
 
 <script>
 const tradePresets = {
   "Home Cleaner": [{desc: "Standard Clean", rate: 150}, {desc: "Deep Clean", rate: 250}, {desc: "Move-out Detail", rate: 120}],
-  "Painter": [{desc: "Room Prep & Tape", rate: 85}, {desc: "Wall Coat (Per Room)", rate: 200}, {desc: "Premium Paint (Gal)", rate: 55}],
-  "Electrician": [{desc: "Diagnostic Trip Fee", rate: 95}, {desc: "Install Fixture", rate: 75}, {desc: "240V Outlet Run", rate: 250}],
-  "Mover": [{desc: "2 Movers + Truck (1hr)", rate: 160}, {desc: "Heavy Item / Safe Fee", rate: 175}],
-  "Remodel Contractor": [{desc: "Site Demolition (1hr)", rate: 80}, {desc: "Debris Dump Run", rate: 150}],
-  "Plumber": [{desc: "Service Dispatch Fee", rate: 89}, {desc: "Snake Main Drain", rate: 140}, {desc: "Valve Replacement", rate: 95}],
-  "Landscaper": [{desc: "Mow, Edge & Blow", rate: 55}, {desc: "Seasonal Cleanup", rate: 175}, {desc: "Mulch Install (Yard)", rate: 90}]
+  "Painter": [{desc: "Room Prep & Tape", rate: 85}, {desc: "Wall Coat (Per Room)", rate: 200}, {desc: "Paint Gallon", rate: 55}],
+  "Electrician": [{desc: "Diagnostic Trip", rate: 95}, {desc: "Install Fixture", rate: 75}, {desc: "Outlet Circuit Run", rate: 220}],
+  "Mover": [{desc: "2 Movers + Truck (1hr)", rate: 160}, {desc: "Heavy Item Handling", rate: 150}],
+  "Remodel Contractor": [{desc: "Site Demolition (1hr)", rate: 80}, {desc: "Dump Debris Run", rate: 150}],
+  "Plumber": [{desc: "Service Dispatch", rate: 89}, {desc: "Snake Line", rate: 140}, {desc: "Valve Replace", rate: 95}],
+  "Landscaper": [{desc: "Mow, Edge, Blow", rate: 55}, {desc: "Yard Cleanup", rate: 175}, {desc: "Mulch Application", rate: 90}]
 };
 
-let currentActionType = 'quote'; // 'quote' or 'marketing'
-let currentInvoiceState = { client_name: "Client Quote", address: "", line_items: [] };
+let currentActionType = 'quote';
+let currentInvoiceState = { client_name: "Client Estimate", address: "", line_items: [] };
 let selectedImageFile = null;
-let mediaRecorder = null;
-let audioChunks = [];
-let isRecording = false;
 
 const chat = document.getElementById('chat');
 const tradeSelect = document.getElementById('tradeSelect');
 const quickAddContainer = document.getElementById('quickAddContainer');
 const textInput = document.getElementById('textInput');
 const sendBtn = document.getElementById('sendBtn');
-const micBtn = document.getElementById('micBtn');
 const uploadBtn = document.getElementById('uploadBtn');
 const imageInput = document.getElementById('imageInput');
 const modeQuotesBtn = document.getElementById('modeQuotesBtn');
 const modeMarketingBtn = document.getElementById('modeMarketingBtn');
+const modeChatBtn = document.getElementById('modeChatBtn');
 const welcomeMessage = document.getElementById('welcomeMessage');
 
 function init() {
   const license = localStorage.getItem('mini_ai_license');
   if (!license) document.getElementById('licenseModal').classList.remove('hidden');
-  document.getElementById('displayCompanyName').textContent = localStorage.getItem('mini_ai_company') || 'Mini AI Pro';
+  document.getElementById('displayCompanyName').textContent = localStorage.getItem('mini_ai_company') || 'Mini AI Assistant';
   const savedTrade = localStorage.getItem('mini_ai_trade');
   if (savedTrade) tradeSelect.value = savedTrade;
   renderQuickAdds();
@@ -167,23 +165,33 @@ document.getElementById('saveLicenseBtn').addEventListener('click', () => {
   }
 });
 
-modeQuotesBtn.addEventListener('click', () => {
-  currentActionType = 'quote';
-  modeQuotesBtn.className = "py-1.5 rounded-md bg-white text-[var(--imessage-blue)] shadow-sm text-center";
-  modeMarketingBtn.className = "py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center";
-  quickAddContainer.classList.remove('hidden');
-  textInput.placeholder = "Describe job or upload quote screenshot...";
-  welcomeMessage.textContent = "Switched to Invoicing. Dictate job scope, tap quick presets, or upload notes.";
-});
+function setMode(mode) {
+  currentActionType = mode;
+  [modeQuotesBtn, modeMarketingBtn, modeChatBtn].forEach(b => {
+    b.className = "py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center";
+  });
 
-modeMarketingBtn.addEventListener('click', () => {
-  currentActionType = 'marketing';
-  modeMarketingBtn.className = "py-1.5 rounded-md bg-white text-[var(--imessage-blue)] shadow-sm text-center";
-  modeQuotesBtn.className = "py-1.5 rounded-md text-gray-600 hover:text-gray-900 text-center";
-  quickAddContainer.classList.add('hidden');
-  textInput.placeholder = "Upload Yelp, social screenshot, or template...";
-  welcomeMessage.textContent = "Marketing Mode: Snap a screenshot of your Yelp profile, a competitor, or your templates site to generate high-converting social posts and audits.";
-});
+  if (mode === 'quote') {
+    modeQuotesBtn.className = "py-1.5 rounded-md bg-white text-[var(--app-blue)] shadow-sm text-center";
+    quickAddContainer.classList.remove('hidden');
+    textInput.placeholder = "Describe job or upload quote notes...";
+    welcomeMessage.textContent = "Invoice Mode: Use trade presets, mic input, or uploaded notes to build an estimate.";
+  } else if (mode === 'marketing') {
+    modeMarketingBtn.className = "py-1.5 rounded-md bg-white text-[var(--app-blue)] shadow-sm text-center";
+    quickAddContainer.classList.add('hidden');
+    textInput.placeholder = "Upload screenshot of Yelp profile or template...";
+    welcomeMessage.textContent = "Marketing Mode: Upload Yelp reviews, social feeds, or templates to generate post copy.";
+  } else if (mode === 'chat') {
+    modeChatBtn.className = "py-1.5 rounded-md bg-white text-[var(--app-blue)] shadow-sm text-center";
+    quickAddContainer.classList.add('hidden');
+    textInput.placeholder = "Ask any code, material pricing, or trade question...";
+    welcomeMessage.textContent = "Chat Mode: Live web search is active. Ask questions about building codes, techniques, or pricing.";
+  }
+}
+
+modeQuotesBtn.addEventListener('click', () => setMode('quote'));
+modeMarketingBtn.addEventListener('click', () => setMode('marketing'));
+modeChatBtn.addEventListener('click', () => setMode('chat'));
 
 function renderQuickAdds() {
   quickAddContainer.innerHTML = '';
@@ -216,7 +224,7 @@ function renderInvoiceCard(invoice) {
     </div>`).join('');
 
   const cardId = 'card-' + Date.now();
-  const company = localStorage.getItem('mini_ai_company') || 'Service Estimate';
+  const company = localStorage.getItem('mini_ai_company') || 'Estimate';
 
   const wrap = document.createElement('div');
   wrap.className = 'flex justify-start w-full';
@@ -224,19 +232,19 @@ function renderInvoiceCard(invoice) {
     <div class="bubble-left p-1 max-w-[94%] w-full">
       <div id="${cardId}" class="p-3 bg-white rounded-xl">
         <div class="pb-1.5 border-b border-gray-100">
-          <div class="text-[9.5px] font-bold text-[var(--imessage-blue)] uppercase tracking-wider">${escapeHtml(company)}</div>
+          <div class="text-[9.5px] font-bold text-[var(--app-blue)] uppercase tracking-wider">${escapeHtml(company)}</div>
           <div class="text-sm font-bold text-gray-900">${escapeHtml(invoice.client_name)}</div>
         </div>
         <div class="my-2">${rows || '<div class="text-xs text-gray-400 py-1">No items yet</div>'}</div>
         <div class="flex justify-between items-center pt-2 border-t border-gray-200 bg-gray-50 px-2 py-1.5 rounded-lg">
           <span class="text-xs font-semibold text-gray-700">Total</span>
-          <span class="text-sm font-bold text-[var(--imessage-blue)]">$${subtotal.toFixed(2)}</span>
+          <span class="text-sm font-bold text-[var(--app-blue)]">$${subtotal.toFixed(2)}</span>
         </div>
       </div>
       <div class="grid grid-cols-3 gap-1 mt-1.5">
         <button onclick="html2pdf().from(document.getElementById('${cardId}')).save('Quote.pdf')" class="py-1 bg-gray-900 text-white rounded text-[11px] font-semibold">PDF</button>
-        <button onclick="window.open('sms:?body=Your estimate is $${subtotal.toFixed(2)}.')" class="py-1 bg-emerald-600 text-white rounded text-[11px] font-semibold">Text</button>
-        <button onclick="currentInvoiceState={client_name:'Client Quote',address:'',line_items:[]}; addUserBubble('Quote cleared.', false);" class="py-1 bg-red-100 text-red-600 rounded text-[11px] font-semibold">Reset</button>
+        <button onclick="window.open('sms:?body=Your estimate total is $${subtotal.toFixed(2)}.')" class="py-1 bg-emerald-600 text-white rounded text-[11px] font-semibold">Text</button>
+        <button onclick="currentInvoiceState={client_name:'Client Estimate',address:'',line_items:[]}; addUserBubble('Cleared quote items.', false);" class="py-1 bg-red-100 text-red-600 rounded text-[11px] font-semibold">Reset</button>
       </div>
     </div>`;
   chat.appendChild(wrap);
@@ -249,7 +257,7 @@ function renderMarketingCard(intel) {
     <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-xs mb-2">
       <div class="flex justify-between font-bold text-gray-700 text-[10px] uppercase">
         <span>${escapeHtml(p.platform)}</span>
-        <button onclick="copyToClipboard('post-${idx}')" class="text-[var(--imessage-blue)] hover:underline">Copy Post</button>
+        <button onclick="copyPost('post-${idx}')" class="text-[var(--app-blue)] hover:underline">Copy Post</button>
       </div>
       <div class="font-semibold text-gray-900 mt-1">${escapeHtml(p.hook)}</div>
       <div id="post-${idx}" class="text-gray-700 mt-1 whitespace-pre-line text-[11.5px]">${escapeHtml(p.caption)}</div>
@@ -262,8 +270,8 @@ function renderMarketingCard(intel) {
     <div class="bubble-left p-1 max-w-[94%] w-full">
       <div class="p-3 bg-white rounded-xl">
         <div class="pb-1.5 border-b border-gray-100">
-          <div class="text-[9.5px] font-bold text-purple-600 uppercase tracking-wider">Reputation & Social Intelligence</div>
-          <div class="text-sm font-bold text-gray-900">${escapeHtml(intel.business_name || 'Market Profile')}</div>
+          <div class="text-[9.5px] font-bold text-purple-600 uppercase tracking-wider">Marketing Intelligence</div>
+          <div class="text-sm font-bold text-gray-900">${escapeHtml(intel.business_name || 'Business Review')}</div>
         </div>
         ${findings ? `<div class="mt-2 mb-2 p-2 bg-purple-50 rounded-lg text-purple-900 text-xs"><ul class="list-disc pl-3 text-[11.5px]">${findings}</ul></div>` : ''}
         <div class="mt-2">${posts}</div>
@@ -273,13 +281,21 @@ function renderMarketingCard(intel) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-window.copyToClipboard = (id) => {
+function renderChatReply(replyText) {
+  const wrap = document.createElement('div');
+  wrap.className = 'flex justify-start';
+  wrap.innerHTML = `<div class="bubble-left px-3.5 py-2.5 max-w-[85%] text-xs whitespace-pre-line leading-relaxed">${escapeHtml(replyText)}</div>`;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+window.copyPost = (id) => {
   const text = document.getElementById(id).innerText;
-  navigator.clipboard.writeText(text).then(() => alert('Post copy saved to clipboard!'));
+  navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard.'));
 };
 
 async function submitToGemini(textPayload) {
-  addUserBubble(textPayload || 'Analyzing uploaded media...', !!selectedImageFile);
+  addUserBubble(textPayload || 'Analyzing uploaded file...', !!selectedImageFile);
 
   const formData = new FormData();
   if (selectedImageFile) formData.append('image', selectedImageFile, selectedImageFile.name);
@@ -303,9 +319,11 @@ async function submitToGemini(textPayload) {
     });
     typing.remove();
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Server error');
+    if (!res.ok) throw new Error(data.error || 'Server processing error');
 
-    if (data.type === 'marketing') {
+    if (data.type === 'chat') {
+      renderChatReply(data.reply);
+    } else if (data.type === 'marketing') {
       renderMarketingCard(data);
     } else {
       currentInvoiceState.client_name = data.client_name || currentInvoiceState.client_name;
@@ -314,7 +332,7 @@ async function submitToGemini(textPayload) {
     }
   } catch (err) {
     typing.remove();
-    addUserBubble(`Error: ${err.message}`, false);
+    addUserBubble(`Notice: ${err.message}`, false);
   }
 }
 
@@ -359,7 +377,7 @@ document.getElementById('removeImageBtn').addEventListener('click', () => {
   document.getElementById('imagePreviewContainer').classList.add('hidden');
 });
 
-// Settings Events
+// Settings Modal Management
 document.getElementById('settingsBtn').addEventListener('click', () => {
   document.getElementById('prefCompanyName').value = localStorage.getItem('mini_ai_company') || '';
   document.getElementById('prefLicenseKey').value = localStorage.getItem('mini_ai_license') || '';
@@ -367,7 +385,7 @@ document.getElementById('settingsBtn').addEventListener('click', () => {
 });
 document.getElementById('closeSettings').addEventListener('click', () => document.getElementById('settingsModal').classList.add('hidden'));
 document.getElementById('savePreferences').addEventListener('click', () => {
-  localStorage.setItem('mini_ai_company', document.getElementById('prefCompanyName').value.trim() || 'Mini AI Pro');
+  localStorage.setItem('mini_ai_company', document.getElementById('prefCompanyName').value.trim() || 'Mini AI Assistant');
   localStorage.setItem('mini_ai_license', document.getElementById('prefLicenseKey').value.trim());
   document.getElementById('displayCompanyName').textContent = localStorage.getItem('mini_ai_company');
   document.getElementById('settingsModal').classList.add('hidden');
