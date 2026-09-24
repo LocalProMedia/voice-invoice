@@ -1,4 +1,4 @@
-// server.js (Dual-Engine Operations & Marketing with Local Fallback)
+// server.js (Invoices, Marketing Intel, and Conversational Search with Offline Fallback)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -24,7 +24,6 @@ app.use(express.static(path.join(__dirname)));
 
 async function verifyGumroadLicense(licenseKey) {
   if (!licenseKey) return false;
-  // Bypass for rapid development:
   if (licenseKey === "TEST-MODE") return true;
 
   try {
@@ -40,7 +39,7 @@ async function verifyGumroadLicense(licenseKey) {
     const data = await response.json();
     return data.success && !data.uses;
   } catch (err) {
-    console.error('License check error:', err);
+    console.error('License verification error:', err);
     return false;
   }
 }
@@ -49,9 +48,9 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
   try {
     const licenseKey = req.headers['x-license-key'];
     const isValidLicense = await verifyGumroadLicense(licenseKey);
-    
+
     if (!isValidLicense) {
-      return res.status(401).json({ error: 'Active Gumroad license required.' });
+      return res.status(401).json({ error: 'Active Gumroad license or TEST-MODE required.' });
     }
 
     const textInput = req.body && typeof req.body.text === 'string' ? req.body.text.trim() : '';
@@ -61,41 +60,49 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
     const imageFile = req.files && req.files['image'] ? req.files['image'][0] : null;
 
     if (!audioFile && !imageFile && !textInput) {
-      return res.status(400).json({ error: 'Please provide text, audio, or a screenshot.' });
+      return res.status(400).json({ error: 'Please provide text, audio, or a photo/screenshot.' });
     }
 
     let systemInstruction = "";
-    
-    if (actionType === 'marketing') {
+    let responseMimeType = "application/json";
+
+    if (actionType === 'chat') {
+      responseMimeType = "text/plain";
+      systemInstruction = `
+You are a knowledgeable, direct field assistant for independent ${trade} contractors.
+Answer questions directly using real-time search when needed for local building codes, trade specifications, troubleshooting, or live pricing.
+Keep explanations concise, practical, and tailored to working in the field.
+      `.trim();
+    } else if (actionType === 'marketing') {
       systemInstruction = `
 You are a Growth Marketing & Reputation Intelligence Engine for home service professionals (${trade}).
-Analyze the provided screenshot (which may be a Yelp page, Instagram/Facebook feed, customer reviews, or a social template library) and accompanying notes.
+Analyze the provided screenshot (Yelp page, social feed, reviews, or template library) and notes.
 
-Produce an action plan formatted strictly as JSON with this exact schema:
+Produce an action plan strictly matching this JSON schema:
 {
   "type": "marketing",
   "business_name": "Extracted business name or Valued Trade Pro",
   "audit_findings": [
-    "Key observation about Yelp profile, ratings, missing details, or template match"
+    "Key observation about Yelp profile, ratings, missing details, or template layout"
   ],
   "social_templates": [
     {
       "platform": "Instagram / Facebook / Nextdoor",
       "hook": "Attention-grabbing headline",
-      "caption": "Full post copy matching the tone of high-ticket ${trade} work",
+      "caption": "Full post copy matching high-ticket ${trade} work",
       "call_to_action": "Contact link or direct dial recommendation",
-      "suggested_visual": "Recommendation of what photo/template layout to use"
+      "suggested_visual": "Photo or template layout recommendation"
     }
   ]
 }
       `.trim();
     } else {
       systemInstruction = `
-You are an expert AI estimating engine for home service professionals specializing in: ${trade}.
+You are an AI estimating engine for home service professionals specializing in: ${trade}.
 Extract the client name, job address, and itemized billing details into clean line items.
-If prices or materials are not stated, use Google Search grounding to populate accurate local market rates.
+If prices or materials are not stated, use Google Search grounding to populate accurate market rates.
 
-Produce an invoice formatted strictly as JSON with this exact schema:
+Produce an invoice strictly matching this JSON schema:
 {
   "type": "quote",
   "client_name": "",
@@ -111,7 +118,7 @@ Produce an invoice formatted strictly as JSON with this exact schema:
       model: 'gemini-1.5-flash',
       systemInstruction,
       tools: [{ googleSearch: {} }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
+      generationConfig: { responseMimeType, temperature: 0.2 },
     });
 
     const parts = [];
@@ -120,34 +127,42 @@ Produce an invoice formatted strictly as JSON with this exact schema:
     if (textInput) parts.push({ text: textInput });
 
     try {
-      // 1. Try to use the Gemini Brain
       const result = await model.generateContent(parts);
       const raw = (result.response.text() || '').trim();
+
+      if (actionType === 'chat') {
+        return res.json({ type: "chat", reply: raw });
+      }
+
       const parsed = safeParseJson(raw);
-      
       if (!parsed) throw new Error('Unparseable AI response');
       return res.json(parsed);
 
     } catch (geminiError) {
-      // 2. THE FALLBACK REFLEX: Internal logic if Gemini fails
-      console.warn("Gemini API unreachable or failed. Falling back to internal logic.", geminiError.message);
-      
+      console.warn("Gemini API fallback active:", geminiError.message);
+
+      if (actionType === 'chat') {
+        return res.json({
+          type: "chat",
+          reply: `Offline Mode: Unable to connect to Gemini live search right now. If you need standard diagnostic rates or basic quotes, switch over to Quote mode to calculate with saved presets.`
+        });
+      }
+
       if (actionType === 'marketing') {
         return res.json({
           type: "marketing",
           business_name: "Local Offline Mode",
-          audit_findings: ["AI is temporarily offline. Basic templates generated locally."],
+          audit_findings: ["AI is temporarily offline. Basic templates generated from local presets."],
           social_templates: [{
             platform: "Universal",
             hook: `Need a reliable ${trade}?`,
-            caption: `We are currently booking new projects! Reach out today to get on our schedule.`,
+            caption: `We are currently booking projects for the upcoming week! Contact us today to secure a spot on the calendar.`,
             call_to_action: "Send us a direct message!",
-            suggested_visual: "A photo of your cleanest recent job."
+            suggested_visual: "A high-quality before-and-after photo of your most recent job."
           }]
         });
       }
 
-      // Offline Quote Generator Regex Fallback
       const priceMatch = textInput.match(/\$?(\d+(\.\d{2})?)/);
       const rate = priceMatch ? parseFloat(priceMatch[1]) : 0;
       const desc = textInput.trim() || `Standard ${trade} Service`;
@@ -158,9 +173,9 @@ Produce an invoice formatted strictly as JSON with this exact schema:
         address: "",
         line_items: [
           { 
-            description: rate > 0 ? desc : `Offline Diagnostic Fee (${trade})`, 
+            description: rate > 0 ? desc : `Standard Service Call (${trade})`, 
             quantity: 1, 
-            rate: rate > 0 ? rate : 150
+            rate: rate > 0 ? rate : 125 
           }
         ]
       });
