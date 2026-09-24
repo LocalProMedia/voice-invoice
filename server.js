@@ -1,4 +1,4 @@
-// server.js (Dual-Engine: Operations & Marketing Intelligence)
+// server.js (Dual-Engine Operations & Marketing with Local Fallback)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -49,13 +49,14 @@ app.post('/api/generate-quote', upload.fields([{ name: 'audio', maxCount: 1 }, {
   try {
     const licenseKey = req.headers['x-license-key'];
     const isValidLicense = await verifyGumroadLicense(licenseKey);
+    
     if (!isValidLicense) {
       return res.status(401).json({ error: 'Active Gumroad license required.' });
     }
 
     const textInput = req.body && typeof req.body.text === 'string' ? req.body.text.trim() : '';
     const trade = req.body && req.body.trade ? req.body.trade : 'General Contractor';
-    const actionType = req.body && req.body.actionType ? req.body.actionType : 'quote'; // 'quote' or 'marketing'
+    const actionType = req.body && req.body.actionType ? req.body.actionType : 'quote'; 
     const audioFile = req.files && req.files['audio'] ? req.files['audio'][0] : null;
     const imageFile = req.files && req.files['image'] ? req.files['image'][0] : null;
 
@@ -118,13 +119,53 @@ Produce an invoice formatted strictly as JSON with this exact schema:
     if (imageFile) parts.push({ inlineData: { mimeType: imageFile.mimetype || 'image/jpeg', data: imageFile.buffer.toString('base64') } });
     if (textInput) parts.push({ text: textInput });
 
-    const result = await model.generateContent(parts);
-    const raw = (result.response.text() || '').trim();
+    try {
+      // 1. Try to use the Gemini Brain
+      const result = await model.generateContent(parts);
+      const raw = (result.response.text() || '').trim();
+      const parsed = safeParseJson(raw);
+      
+      if (!parsed) throw new Error('Unparseable AI response');
+      return res.json(parsed);
 
-    const parsed = safeParseJson(raw);
-    if (!parsed) return res.status(502).json({ error: 'Could not parse response from AI engine.' });
+    } catch (geminiError) {
+      // 2. THE FALLBACK REFLEX: Internal logic if Gemini fails
+      console.warn("Gemini API unreachable or failed. Falling back to internal logic.", geminiError.message);
+      
+      if (actionType === 'marketing') {
+        return res.json({
+          type: "marketing",
+          business_name: "Local Offline Mode",
+          audit_findings: ["AI is temporarily offline. Basic templates generated locally."],
+          social_templates: [{
+            platform: "Universal",
+            hook: `Need a reliable ${trade}?`,
+            caption: `We are currently booking new projects! Reach out today to get on our schedule.`,
+            call_to_action: "Send us a direct message!",
+            suggested_visual: "A photo of your cleanest recent job."
+          }]
+        });
+      }
 
-    res.json(parsed);
+      // Offline Quote Generator Regex Fallback
+      const priceMatch = textInput.match(/\$?(\d+(\.\d{2})?)/);
+      const rate = priceMatch ? parseFloat(priceMatch[1]) : 0;
+      const desc = textInput.trim() || `Standard ${trade} Service`;
+
+      return res.json({
+        type: "quote",
+        client_name: "Client Quote (Offline Mode)",
+        address: "",
+        line_items: [
+          { 
+            description: rate > 0 ? desc : `Offline Diagnostic Fee (${trade})`, 
+            quantity: 1, 
+            rate: rate > 0 ? rate : 150
+          }
+        ]
+      });
+    }
+
   } catch (err) {
     console.error('API Error:', err);
     res.status(500).json({ error: 'Server processing error.' });
